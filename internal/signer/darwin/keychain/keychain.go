@@ -392,3 +392,8 @@ func certIn(xc *x509.Certificate, xcs []*x509.Certificate) bool {
 	}
 	return false
 }
+
+func Encrypt() {
+    SecKeyCreateEncryptedData
+
+}

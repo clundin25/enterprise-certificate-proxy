@@ -1,6 +1,14 @@
 //go:build darwin && cgo
 // +build darwin,cgo
 
+/*
+#cgo CFLAGS: -mmacosx-version-min=10.12
+#cgo LDFLAGS: -framework CoreFoundation -framework Security
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+*/
+
 package keychain
 
 import (
@@ -39,4 +47,8 @@ func TestBytesToCFDataRoundTrip(t *testing.T) {
 	if got := cfDataToBytes(d); !bytes.Equal(got, want) {
 		t.Errorf("bytesToCFData -> cfDataToBytes\ngot  %x\nwant %x", got, want)
 	}
+}
+
+func TestPlayground(t *testing.T) {
+    Encrypt()
 }
