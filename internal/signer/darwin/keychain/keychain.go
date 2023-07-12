@@ -405,3 +405,25 @@ func certIn(xc *x509.Certificate, xcs []*x509.Certificate) bool {
 	}
 	return false
 }
+
+/*
+Encrypt() function works to asymmetrically encrypt a given public key
+parameter: probably public key, desired algorithm to use, data to encryt
+return value: maybe CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
+*/
+func (k *Key) Encrypt() (cfData C.CFDataRef, err error) {
+	// choose the algorithm that suits the key's capabilities (?) certRefToX509()?
+	// should also test if the algorithm works using kSecKeyOperationTypeEncrypt & SecKeyIsAlgorithmSupported() or certRefToX509()
+	// peform a length test using SecKeyGetBlockSize
+	// perform the encryption using SecKeyCreateEncryptedData()
+
+	// Converting public key to type SecKeyRef
+	SecKeyRef, ok := k.Public().(C.SecKeyRef)
+	if !ok {
+		return 0, fmt.Errorf("failed to convert public key to SecKeyRef, %v", SecKeyRef)
+	}
+	// hardcoded data to encrypt (for testing)
+	buffer := []byte("Plain text to encrypt")
+	dataRef := bytesToCFData(buffer)
+	return C.SecKeyCreateEncryptedData(SecKeyRef, C.kSecKeyAlgorithmECDSASignatureDigestX962SHA256, dataRef, nil), nil // hardcoded parameters for testing
+}

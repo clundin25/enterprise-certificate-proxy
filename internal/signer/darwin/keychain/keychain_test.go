@@ -46,3 +46,7 @@ func TestBytesToCFDataRoundTrip(t *testing.T) {
 		t.Errorf("bytesToCFData -> cfDataToBytes\ngot  %x\nwant %x", got, want)
 	}
 }
+
+func TestEncrypt(t *testing.T) {
+	// Encrypt()
+}
