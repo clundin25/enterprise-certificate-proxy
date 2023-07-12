@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"testing"
 	"unsafe"
+
+	"fmt"
 )
 
 func TestKeychainError(t *testing.T) {
@@ -48,5 +50,19 @@ func TestBytesToCFDataRoundTrip(t *testing.T) {
 }
 
 func TestEncrypt(t *testing.T) {
-	// Encrypt()
+	// Getting the public key
+	keyPointer, err := Cred("Google Endpoint Verification")
+	if err != nil {
+		t.Errorf("Cred error: %q", err)
+		return
+	}
+	publicKey := keyPointer.Public()
+
+	// Encrypting
+	encryptedData, encryptErr := keyPointer.Encrypt(publicKey)
+	if encryptErr != nil {
+		t.Errorf("Encrypt error: %q", encryptErr)
+		return
+	}
+	fmt.Println("Encrypted successfully:", encryptedData)
 }
