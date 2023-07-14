@@ -18,6 +18,8 @@ package keychain
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
 	"testing"
 	"unsafe"
 
@@ -47,6 +49,25 @@ func TestBytesToCFDataRoundTrip(t *testing.T) {
 	if got := cfDataToBytes(d); !bytes.Equal(got, want) {
 		t.Errorf("bytesToCFData -> cfDataToBytes\ngot  %x\nwant %x", got, want)
 	}
+}
+
+func TestEncryptRSA(t *testing.T) {
+	hashFunc := sha256.New()
+	rng := rand.Reader
+	key, errCred := Cred("Google Endpoint Verification")
+	if errCred != nil {
+		t.Errorf("Cred error: %q", errCred)
+		return
+	}
+	publicKey := key.Public()
+	message := []byte("Plain text to encrypt")
+	label := []byte("test")
+	cipherText, errEncrypt := EncryptRSA(hashFunc, rng, publicKey, message, label)
+	if errEncrypt != nil {
+		t.Errorf("Encrypt error: %q", errEncrypt)
+		return
+	}
+	fmt.Println("Encrypted successfully: ", cipherText)
 }
 
 func TestSecKeyEncrypt(t *testing.T) {

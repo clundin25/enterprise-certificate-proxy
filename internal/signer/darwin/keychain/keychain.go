@@ -34,6 +34,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"hash"
 	"io"
 	"runtime"
 	"sync"
@@ -408,6 +409,16 @@ func certIn(xc *x509.Certificate, xcs []*x509.Certificate) bool {
 
 /*
 Encrypt() function works to asymmetrically encrypt using a given public key
+This version of Encrypt() will use the Go Crypto API encrypt function instead of SecKey
+*/
+func EncryptRSA(hashInput hash.Hash, random io.Reader, pub crypto.PublicKey, msg []byte, label []byte) ([]byte, error) {
+	var publicKey interface{} = pub
+	rsaPubKey := publicKey.(rsa.PublicKey)
+	return rsa.EncryptOAEP(hashInput, random, &rsaPubKey, msg, label)
+}
+
+/*
+Encrypt() function works to asymmetrically encrypt using a given public key
 parameters: public key, desired algorithm to use, data to encryt
 return value: CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
 */
@@ -418,10 +429,12 @@ func (k *Key) Encrypt(public crypto.PublicKey) (cfData C.CFDataRef, err error) {
 	// perform the encryption using SecKeyCreateEncryptedData()
 
 	// Converting public key to type SecKeyRef
-	SecKeyRef, ok := public.(C.SecKeyRef)
-	if !ok {
-		return 0, fmt.Errorf("failed to convert public key to SecKeyRef, %v", SecKeyRef)
-	}
+	// SecKeyRef, ok := public.(C.SecKeyRef)
+	// if !ok {
+	// 	return 0, fmt.Errorf("failed to convert public key to SecKeyRef, %v", SecKeyRef)
+	// }
+	var publicKey interface{} = public
+	SecKeyRef := publicKey.(C.SecKeyRef)
 
 	// hardcoded data to encrypt (for testing)
 	buffer := []byte("Plain text to encrypt")
