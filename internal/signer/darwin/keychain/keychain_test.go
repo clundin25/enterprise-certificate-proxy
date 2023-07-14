@@ -49,7 +49,7 @@ func TestBytesToCFDataRoundTrip(t *testing.T) {
 	}
 }
 
-func TestEncrypt(t *testing.T) {
+func TestSecKeyEncrypt(t *testing.T) {
 	// Getting the public key
 	keyPointer, err := Cred("Google Endpoint Verification")
 	if err != nil {

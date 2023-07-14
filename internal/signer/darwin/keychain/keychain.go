@@ -407,9 +407,9 @@ func certIn(xc *x509.Certificate, xcs []*x509.Certificate) bool {
 }
 
 /*
-Encrypt() function works to asymmetrically encrypt a given public key
-parameters: probably public key, desired algorithm to use, data to encryt
-return value: maybe CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
+Encrypt() function works to asymmetrically encrypt using a given public key
+parameters: public key, desired algorithm to use, data to encryt
+return value: CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
 */
 func (k *Key) Encrypt(public crypto.PublicKey) (cfData C.CFDataRef, err error) {
 	// choose the algorithm that suits the key's capabilities (?) certRefToX509()?
@@ -426,5 +426,15 @@ func (k *Key) Encrypt(public crypto.PublicKey) (cfData C.CFDataRef, err error) {
 	// hardcoded data to encrypt (for testing)
 	buffer := []byte("Plain text to encrypt")
 	dataRef := bytesToCFData(buffer)
+
 	return C.SecKeyCreateEncryptedData(SecKeyRef, C.kSecKeyAlgorithmECDSASignatureDigestX962SHA256, dataRef, nil), nil // hardcoded parameters for testing
 }
+
+/*
+Decrypt() function works to decrypt using a given private key
+parameters: private key, desired algorithm to use, data to decrypt
+return value: CFDataRef since the SecKeyCreateDecryptedData() function returns that value, error
+*/
+// func Decrypt() (cfData C.CFDataRef, err error) {
+
+// }
