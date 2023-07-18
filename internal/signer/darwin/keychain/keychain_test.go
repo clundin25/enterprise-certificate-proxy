@@ -55,7 +55,7 @@ func TestBytesToCFDataRoundTrip(t *testing.T) {
 func TestEncryptRSA(t *testing.T) {
 	hashFunc := sha256.New()
 	rng := rand.Reader
-	key, errCred := Cred("Google Endpoint Verification")
+	key, errCred := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
 	if errCred != nil {
 		t.Errorf("Cred error: %q", errCred)
 		return
@@ -73,7 +73,7 @@ func TestEncryptRSA(t *testing.T) {
 
 func TestSecKeyEncrypt(t *testing.T) {
 	// Getting the public key
-	key, err := Cred("Google Endpoint Verification")
+	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
 	if err != nil {
 		t.Errorf("Cred error: %q", err)
 		return
