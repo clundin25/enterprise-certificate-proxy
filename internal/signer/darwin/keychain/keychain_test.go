@@ -18,6 +18,7 @@ package keychain
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"testing"
@@ -59,10 +60,10 @@ func TestEncryptRSA(t *testing.T) {
 		t.Errorf("Cred error: %q", errCred)
 		return
 	}
-	publicKey := key.Public()
 	message := []byte("Plain text to encrypt")
-	label := []byte("test")
-	cipherText, errEncrypt := EncryptRSA(hashFunc, rng, publicKey, message, label)
+
+	// Encrypting
+	cipherText, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
 	if errEncrypt != nil {
 		t.Errorf("Encrypt error: %q", errEncrypt)
 		return
@@ -72,18 +73,22 @@ func TestEncryptRSA(t *testing.T) {
 
 func TestSecKeyEncrypt(t *testing.T) {
 	// Getting the public key
-	keyPointer, err := Cred("Google Endpoint Verification")
+	key, err := Cred("Google Endpoint Verification")
 	if err != nil {
 		t.Errorf("Cred error: %q", err)
 		return
 	}
-	publicKey := keyPointer.Public()
+	hashFunc := crypto.Hash(crypto.SHA256)
+	rsaAlgor := rsaPKCS1v15Algorithms[hashFunc]
+
+	buffer := []byte("Plain text to encrypt")
+	dataRef := bytesToCFData(buffer)
 
 	// Encrypting
-	encryptedData, encryptErr := keyPointer.Encrypt(publicKey)
-	if encryptErr != nil {
-		t.Errorf("Encrypt error: %q", encryptErr)
+	cipherText, errEncrypt := key.Encrypt(rsaAlgor, dataRef)
+	if errEncrypt != nil {
+		t.Errorf("Encrypt error: %q", errEncrypt)
 		return
 	}
-	fmt.Println("Encrypted successfully:", encryptedData)
+	fmt.Println("Encrypted successfully:", cipherText)
 }
