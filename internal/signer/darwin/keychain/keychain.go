@@ -411,10 +411,11 @@ func certIn(xc *x509.Certificate, xcs []*x509.Certificate) bool {
 Encrypt() function works to asymmetrically encrypt using a given public key
 This version of Encrypt() will use the Go Crypto API encrypt function instead of SecKey
 */
-func EncryptRSA(hashInput hash.Hash, random io.Reader, pub crypto.PublicKey, msg []byte, label []byte) ([]byte, error) {
+func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]byte, error) {
+	pub := k.Public()
 	var publicKey interface{} = pub
 	rsaPubKey := publicKey.(rsa.PublicKey)
-	return rsa.EncryptOAEP(hashInput, random, &rsaPubKey, msg, label)
+	return rsa.EncryptOAEP(hashInput, random, &rsaPubKey, msg, nil)
 }
 
 /*
@@ -422,7 +423,7 @@ Encrypt() function works to asymmetrically encrypt using a given public key
 parameters: public key, desired algorithm to use, data to encryt
 return value: CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
 */
-func (k *Key) Encrypt(public crypto.PublicKey) (cfData C.CFDataRef, err error) {
+func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfData C.CFDataRef, err error) {
 	// choose the algorithm that suits the key's capabilities (?) certRefToX509()?
 	// should also test if the algorithm works using kSecKeyOperationTypeEncrypt & SecKeyIsAlgorithmSupported() or certRefToX509()
 	// peform a length test using SecKeyGetBlockSize
@@ -433,14 +434,11 @@ func (k *Key) Encrypt(public crypto.PublicKey) (cfData C.CFDataRef, err error) {
 	// if !ok {
 	// 	return 0, fmt.Errorf("failed to convert public key to SecKeyRef, %v", SecKeyRef)
 	// }
-	var publicKey interface{} = public
+	pub := k.Public()
+	var publicKey interface{} = pub
 	SecKeyRef := publicKey.(C.SecKeyRef)
-
-	// hardcoded data to encrypt (for testing)
-	buffer := []byte("Plain text to encrypt")
-	dataRef := bytesToCFData(buffer)
-
-	return C.SecKeyCreateEncryptedData(SecKeyRef, C.kSecKeyAlgorithmECDSASignatureDigestX962SHA256, dataRef, nil), nil // hardcoded parameters for testing
+	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, nil)
+	return cipherText, err
 }
 
 /*
