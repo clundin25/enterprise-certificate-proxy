@@ -430,18 +430,7 @@ func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfDat
 	// perform the encryption using SecKeyCreateEncryptedData()
 
 	// Converting public key to type SecKeyRef
-	//pub := k.Public()
-	//var publicKey interface{} = pub
 	SecKeyRef := k.privateKeyRef
 	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, nil)
 	return cipherText, err
 }
-
-/*
-Decrypt() function works to decrypt using a given private key
-parameters: private key, desired algorithm to use, data to decrypt
-return value: CFDataRef since the SecKeyCreateDecryptedData() function returns that value, error
-*/
-// func Decrypt() (cfData C.CFDataRef, err error) {
-
-// }
