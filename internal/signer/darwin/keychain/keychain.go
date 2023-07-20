@@ -414,8 +414,8 @@ This version of Encrypt() will use the Go Crypto API encrypt function instead of
 func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]byte, error) {
 	pub := k.Public()
 	var publicKey interface{} = pub
-	rsaPubKey := publicKey.(rsa.PublicKey)
-	return rsa.EncryptOAEP(hashInput, random, &rsaPubKey, msg, nil)
+	rsaPubKey := publicKey.(*rsa.PublicKey) // downcasting
+	return rsa.EncryptOAEP(hashInput, random, rsaPubKey, msg, nil)
 }
 
 /*
@@ -430,13 +430,9 @@ func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfDat
 	// perform the encryption using SecKeyCreateEncryptedData()
 
 	// Converting public key to type SecKeyRef
-	// SecKeyRef, ok := public.(C.SecKeyRef)
-	// if !ok {
-	// 	return 0, fmt.Errorf("failed to convert public key to SecKeyRef, %v", SecKeyRef)
-	// }
-	pub := k.Public()
-	var publicKey interface{} = pub
-	SecKeyRef := publicKey.(C.SecKeyRef)
+	//pub := k.Public()
+	//var publicKey interface{} = pub
+	SecKeyRef := k.privateKeyRef
 	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, nil)
 	return cipherText, err
 }
