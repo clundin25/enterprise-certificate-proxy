@@ -92,3 +92,69 @@ func TestSecKeyEncrypt(t *testing.T) {
 	}
 	fmt.Println("Encrypted successfully:", cipherText)
 }
+
+// func TestDecrypt(t *testing.T) {
+// 	// Getting the public key
+// 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+// 	if err != nil {
+// 		t.Errorf("Cred error: %q", err)
+// 		return
+// 	}
+// 	hashFunc := crypto.Hash(crypto.SHA256)
+// 	rsaAlgor := rsaPKCS1v15Algorithms[hashFunc]
+
+// 	buffer := []byte("Plain text to encrypt")
+// 	dataRef := bytesToCFData(buffer)
+
+// 	// Encrypting
+// 	cipherText, errEncrypt := key.Encrypt(rsaAlgor, dataRef)
+// 	if errEncrypt != nil {
+// 		t.Errorf("Encrypt error: %q", errEncrypt)
+// 		return
+// 	}
+// 	fmt.Println("Encrypted successfully:", cipherText)
+
+// 	// Decrypting
+// 	plaintext, errDecrypt := key.Decrypt(rsaAlgor, cipherText)
+// 	if errDecrypt != nil {
+// 		t.Errorf("Encrypt error: %q", errDecrypt)
+// 		return
+// 	}
+// 	fmt.Println("Decrypted successfully:", plaintext)
+// }
+
+func TestDecryptOAEP(t *testing.T) {
+	hashFunc := sha256.New()
+	rng := rand.Reader
+	key, errCred := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+	if errCred != nil {
+		t.Errorf("Cred error: %q", errCred)
+		return
+	}
+	message := []byte("Plain text to encrypt")
+
+	// Encrypting
+	cipherText, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
+	if errEncrypt != nil {
+		t.Errorf("Encrypt error: %q", errEncrypt)
+		return
+	}
+	fmt.Println("Encrypted successfully: ", cipherText)
+
+	// Decrypting
+	// Converting hash algorithm into encryption algorithm
+	// var hashIn interface{} = hashFunc
+	// cryptoHash := hashIn.(crypto.Hash)
+	// rsaAlgor := rsaPKCS1v15Algorithms[cryptoHash]
+
+	text2Decrypt := bytesToCFData(cipherText)
+
+	plaintext, errDecrypt := key.Decrypt(text2Decrypt)
+	if errDecrypt != nil {
+		t.Errorf("Encrypt error: %q", errDecrypt)
+		return
+	}
+	byteSlice := (cfDataToBytes(plaintext))
+	readable := string(byteSlice)
+	fmt.Println("Decrypted successfully:", readable)
+}

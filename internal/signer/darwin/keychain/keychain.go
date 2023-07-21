@@ -60,6 +60,9 @@ var (
 		crypto.SHA384: C.kSecKeyAlgorithmRSASignatureDigestPSSSHA384,
 		crypto.SHA512: C.kSecKeyAlgorithmRSASignatureDigestPSSSHA512,
 	}
+	rsaOAEPAlgorithms = map[crypto.Hash]C.CFStringRef{
+		crypto.SHA256: C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256,
+	}
 )
 
 // cfStringToString returns a Go string given a CFString.
@@ -414,13 +417,13 @@ This version of Encrypt() will use the Go Crypto API encrypt function instead of
 func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]byte, error) {
 	pub := k.Public()
 	var publicKey interface{} = pub
-	rsaPubKey := publicKey.(*rsa.PublicKey) // downcasting
+	rsaPubKey := publicKey.(*rsa.PublicKey)
 	return rsa.EncryptOAEP(hashInput, random, rsaPubKey, msg, nil)
 }
 
 /*
 Encrypt() function works to asymmetrically encrypt using a given public key
-parameters: public key, desired algorithm to use, data to encryt
+parameters: desired algorithm to use, data to encryt
 return value: CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
 */
 func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfData C.CFDataRef, err error) {
@@ -431,6 +434,18 @@ func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfDat
 
 	// Converting public key to type SecKeyRef
 	SecKeyRef := k.privateKeyRef
-	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, nil)
+	var encryptErr C.CFErrorRef
+	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, &encryptErr)
 	return cipherText, err
+}
+
+/*
+Decrypt() function works to decrypt using a given private key
+parameters: desired algorithm to use, data to decrypt
+return value: CFDataRef since the SecKeyCreateDecryptedData() function returns that value, error
+*/
+func (k *Key) Decrypt(ciphertext C.CFDataRef) (cfData C.CFDataRef, err error) {
+	priKey := k.privateKeyRef
+	plainText, err := C.SecKeyCreateDecryptedData(priKey, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256, ciphertext, nil) // temp hard-coded algorithm
+	return plainText, err
 }
