@@ -68,7 +68,7 @@ func TestEncryptRSA(t *testing.T) {
 		t.Errorf("Encrypt error: %q", errEncrypt)
 		return
 	}
-	fmt.Println("Encrypted successfully: ", cipherText)
+	fmt.Println("Encrypted message: ", cipherText)
 }
 
 func TestSecKeyEncrypt(t *testing.T) {
@@ -90,10 +90,10 @@ func TestSecKeyEncrypt(t *testing.T) {
 		t.Errorf("Encrypt error: %q", errEncrypt)
 		return
 	}
-	fmt.Println("Encrypted successfully:", cipherText)
+	fmt.Println("Encrypted message:", cipherText)
 }
 
-// func TestDecrypt(t *testing.T) {
+// func TestDecryptSecKey(t *testing.T) {
 // 	// Getting the public key
 // 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
 // 	if err != nil {
@@ -139,7 +139,7 @@ func TestDecryptOAEP(t *testing.T) {
 		t.Errorf("Encrypt error: %q", errEncrypt)
 		return
 	}
-	fmt.Println("Encrypted successfully: ", cipherText)
+	fmt.Println("Encrypted message: ", cipherText)
 
 	// Decrypting
 	// Converting hash algorithm into encryption algorithm
@@ -156,5 +156,5 @@ func TestDecryptOAEP(t *testing.T) {
 	}
 	byteSlice := (cfDataToBytes(plaintext))
 	readable := string(byteSlice)
-	fmt.Println("Decrypted successfully:", readable)
+	fmt.Println("Decrypted message:", readable)
 }

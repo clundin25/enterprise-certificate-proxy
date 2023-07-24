@@ -145,15 +145,17 @@ type Key struct {
 	privateKeyRef C.SecKeyRef
 	certs         []*x509.Certificate
 	once          sync.Once
+	publicKeyRef  *C.SecKeyRef
 }
 
 // newKey makes a new Key wrapper around the key reference,
 // takes ownership of the reference, and sets up a finalizer to handle releasing
 // the reference.
-func newKey(privateKeyRef C.SecKeyRef, certs []*x509.Certificate) (*Key, error) {
+func newKey(privateKeyRef C.SecKeyRef, certs []*x509.Certificate, publicKeyRef *C.SecKeyRef) (*Key, error) {
 	k := &Key{
 		privateKeyRef: privateKeyRef,
 		certs:         certs,
+		publicKeyRef:  publicKeyRef,
 	}
 
 	// This struct now owns the key reference. Retain now and release on
@@ -251,18 +253,20 @@ func Cred(issuerCN string) (*Key, error) {
 	var (
 		leafIdent C.SecIdentityRef
 		leaf      *x509.Certificate
+		key       *C.SecKeyRef
 	)
 	// Find the first valid leaf whose issuer (CA) matches the name in filter.
 	// Validation in identityToX509 covers Not Before, Not After and key alg.
 	for i := 0; i < int(C.CFArrayGetCount(signingIdents)) && leaf == nil; i++ {
 		identDict := C.CFArrayGetValueAtIndex(signingIdents, C.CFIndex(i))
-		xc, err := identityToX509(C.SecIdentityRef(identDict))
+		xc, seckey, err := identityToX509(C.SecIdentityRef(identDict))
 		if err != nil {
 			continue
 		}
 		if xc.Issuer.CommonName == issuerCN {
 			leaf = xc
 			leafIdent = C.SecIdentityRef(identDict)
+			key = seckey
 		}
 	}
 
@@ -285,7 +289,7 @@ func Cred(issuerCN string) (*Key, error) {
 	var allCerts []*x509.Certificate
 	for i := 0; i < int(C.CFArrayGetCount(certRefs)); i++ {
 		refDict := C.CFArrayGetValueAtIndex(certRefs, C.CFIndex(i))
-		if xc, err := certRefToX509(C.SecCertificateRef(refDict)); err == nil {
+		if xc, _, err := certRefToX509(C.SecCertificateRef(refDict)); err == nil {
 			allCerts = append(allCerts, xc)
 		}
 	}
@@ -319,15 +323,15 @@ func Cred(issuerCN string) (*Key, error) {
 		return nil, err
 	}
 	defer C.CFRelease(C.CFTypeRef(skr))
-	return newKey(skr, certs)
+	return newKey(skr, certs, key)
 }
 
 // identityToX509 converts a single CFDictionary that contains the item ref and
 // attribute dictionary into an x509.Certificate.
-func identityToX509(ident C.SecIdentityRef) (*x509.Certificate, error) {
+func identityToX509(ident C.SecIdentityRef) (*x509.Certificate, *C.SecKeyRef, error) {
 	var certRef C.SecCertificateRef
 	if errno := C.SecIdentityCopyCertificate(ident, &certRef); errno != 0 {
-		return nil, keychainError(errno)
+		return nil, nil, keychainError(errno)
 	}
 	defer C.CFRelease(C.CFTypeRef(certRef))
 
@@ -335,11 +339,11 @@ func identityToX509(ident C.SecIdentityRef) (*x509.Certificate, error) {
 }
 
 // certRefToX509 converts a single C.SecCertificateRef into an *x509.Certificate.
-func certRefToX509(certRef C.SecCertificateRef) (*x509.Certificate, error) {
+func certRefToX509(certRef C.SecCertificateRef) (*x509.Certificate, *C.SecKeyRef, error) {
 	// Export the PEM-encoded certificate to a CFDataRef.
 	var certPEMData C.CFDataRef
 	if errno := C.SecItemExport(C.CFTypeRef(certRef), C.kSecFormatUnknown, C.kSecItemPemArmour, nil, &certPEMData); errno != 0 {
-		return nil, keychainError(errno)
+		return nil, nil, keychainError(errno)
 	}
 	defer C.CFRelease(C.CFTypeRef(certPEMData))
 	certPEM := cfDataToBytes(certPEMData)
@@ -349,7 +353,7 @@ func certRefToX509(certRef C.SecCertificateRef) (*x509.Certificate, error) {
 	for {
 		certDERBlock, certPEM = pem.Decode(certPEM)
 		if certDERBlock == nil {
-			return nil, fmt.Errorf("failed to parse certificate PEM data")
+			return nil, nil, fmt.Errorf("failed to parse certificate PEM data")
 		}
 		if certDERBlock.Type == "CERTIFICATE" {
 			// found it
@@ -362,20 +366,20 @@ func certRefToX509(certRef C.SecCertificateRef) (*x509.Certificate, error) {
 	// algorithm). This also filters out certs missing critical extensions.
 	xc, err := x509.ParseCertificate(certDERBlock.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	switch xc.PublicKey.(type) {
 	case *rsa.PublicKey, *ecdsa.PublicKey:
 	default:
-		return nil, fmt.Errorf("unsupported key type %T", xc.PublicKey)
+		return nil, nil, fmt.Errorf("unsupported key type %T", xc.PublicKey)
 	}
 
 	// Check the certificate is valid
 	if n := time.Now(); n.Before(xc.NotBefore) || n.After(xc.NotAfter) {
-		return nil, fmt.Errorf("certificate not valid")
+		return nil, nil, fmt.Errorf("certificate not valid")
 	}
 
-	return xc, nil
+	return xc, nil, nil
 }
 
 // identityToSecKeyRef converts a single CFDictionary that contains the item ref and
@@ -433,9 +437,11 @@ func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfDat
 	// perform the encryption using SecKeyCreateEncryptedData()
 
 	// Converting public key to type SecKeyRef
-	SecKeyRef := k.privateKeyRef
+	SecKeyRef := k.publicKeyRef
+	// C.SecCertificateCopyKey
+	//pubKey := C.SecKeyCopyPublicKey(SecKeyRef)
 	var encryptErr C.CFErrorRef
-	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, &encryptErr)
+	cipherText, err := C.SecKeyCreateEncryptedData(*SecKeyRef, algorithm, plaintext, &encryptErr)
 	return cipherText, err
 }
 
