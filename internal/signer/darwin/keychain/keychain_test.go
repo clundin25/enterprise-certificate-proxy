@@ -96,7 +96,7 @@ func BenchmarkEncryptSecKey(b *testing.B) {
 		return
 	}
 	hashFunc := crypto.Hash(crypto.SHA256)
-	rsaAlgor := rawRSA[hashFunc]
+	rsaAlgor := rsaOAEPAlgorithms[hashFunc]
 	buffer := []byte("Plain text to encrypt")
 	dataRef := bytesToCFData(buffer)
 
