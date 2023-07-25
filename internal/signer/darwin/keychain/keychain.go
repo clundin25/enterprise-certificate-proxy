@@ -479,7 +479,7 @@ Encrypt() function works to asymmetrically encrypt using a given public key
 parameters: desired algorithm to use, data to encryt
 return value: CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
 */
-func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfData C.CFDataRef, err error) {
+func (k *Key) EncryptSecKey(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfData C.CFDataRef, err error) {
 	// choose the algorithm that suits the key's capabilities (?) certRefToX509()?
 	// should also test if the algorithm works using kSecKeyOperationTypeEncrypt & SecKeyIsAlgorithmSupported() or certRefToX509()
 	// peform a length test using SecKeyGetBlockSize
@@ -493,9 +493,9 @@ func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfDat
 
 	// TODO(angela): Correctly check if there is an error here, then log the error.
 	// Eventually remove the log statement and let callers deal with the error.
-	if err != nil {
-		fmt.Println(err)
-	}
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 	return cipherText, err
 }
 

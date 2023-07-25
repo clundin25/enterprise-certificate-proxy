@@ -80,30 +80,42 @@ func BenchmarkEncryptRSA(b *testing.B) {
 	}
 	message := []byte("Plain text to encrypt")
 
-    for i := 0; i < b.N; i++ {
-        _, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
-        if errEncrypt != nil {
-            b.Errorf("Encrypt error: %q", errEncrypt)
-            return
-        }
-    }
+	for i := 0; i < b.N; i++ {
+		_, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
+		if errEncrypt != nil {
+			b.Errorf("Encrypt error: %q", errEncrypt)
+			return
+		}
+	}
 }
 
-func TestSecKeyEncrypt(t *testing.T) {
+func BenchmarkEncryptSecKey(b *testing.B) {
+	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+	if err != nil {
+		b.Errorf("Cred error: %q", err)
+		return
+	}
+	hashFunc := crypto.Hash(crypto.SHA256)
+	rsaAlgor := rawRSA[hashFunc]
+	buffer := []byte("Plain text to encrypt")
+	dataRef := bytesToCFData(buffer)
+
+	for i := 0; i < b.N; i++ {
+		key.EncryptSecKey(rsaAlgor, dataRef)
+	}
+}
+func TestEncryptSecKey(t *testing.T) {
 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
 	if err != nil {
 		t.Errorf("Cred error: %q", err)
 		return
 	}
-	key.PrintSupportedAlgorithms()
 	hashFunc := crypto.Hash(crypto.SHA256)
 	rsaAlgor := rawRSA[hashFunc]
 
 	buffer := []byte("Plain text to encrypt")
 	dataRef := bytesToCFData(buffer)
-
-	fmt.Print("Test")
-	msg, _ := key.Encrypt(rsaAlgor, dataRef)
+	msg, _ := key.EncryptSecKey(rsaAlgor, dataRef)
 	// if errEncrypt != nil {
 	// 	t.Errorf("Encrypt error: %v", errEncrypt)
 	// 	return
@@ -125,7 +137,7 @@ func TestDecryptSecKey(t *testing.T) {
 	dataRef := bytesToCFData(buffer)
 
 	fmt.Print("Test")
-	msg, _ := key.Encrypt(rsaAlgor, dataRef)
+	msg, _ := key.EncryptSecKey(rsaAlgor, dataRef)
 	// if errEncrypt != nil {
 	// 	t.Errorf("Encrypt error: %v", errEncrypt)
 	// 	return
@@ -141,7 +153,7 @@ func TestDecryptSecKey(t *testing.T) {
 	fmt.Println("Decrypted successfully:", readable)
 }
 
-// func TestDecryptOAEP(t *testing.T) {
+// func TestDecryptRSA(t *testing.T) {
 // 	hashFunc := sha256.New()
 // 	rng := rand.Reader
 // 	key, errCred := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
