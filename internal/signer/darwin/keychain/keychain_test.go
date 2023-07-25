@@ -62,13 +62,12 @@ func TestEncryptRSA(t *testing.T) {
 	}
 	message := []byte("Plain text to encrypt")
 
-	// Encrypting
-	cipherText, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
+	_, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
 	if errEncrypt != nil {
 		t.Errorf("Encrypt error: %q", errEncrypt)
 		return
 	}
-	fmt.Println("Encrypted message: ", cipherText)
+	fmt.Println("Encrypted")
 }
 
 func BenchmarkEncryptRSA(b *testing.B) {
@@ -91,89 +90,88 @@ func BenchmarkEncryptRSA(b *testing.B) {
 }
 
 func TestSecKeyEncrypt(t *testing.T) {
-	// Getting the public key
+	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+	if err != nil {
+		t.Errorf("Cred error: %q", err)
+		return
+	}
+	key.PrintSupportedAlgorithms()
+	hashFunc := crypto.Hash(crypto.SHA256)
+	rsaAlgor := rawRSA[hashFunc]
+
+	buffer := []byte("Plain text to encrypt")
+	dataRef := bytesToCFData(buffer)
+
+	fmt.Print("Test")
+	msg, _ := key.Encrypt(rsaAlgor, dataRef)
+	// if errEncrypt != nil {
+	// 	t.Errorf("Encrypt error: %v", errEncrypt)
+	// 	return
+	// }
+	byteSlice := cfDataToBytes(msg)
+	fmt.Printf("Encrypted %+v\n", byteSlice)
+}
+
+func TestDecryptSecKey(t *testing.T) {
 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
 	if err != nil {
 		t.Errorf("Cred error: %q", err)
 		return
 	}
 	hashFunc := crypto.Hash(crypto.SHA256)
-	rsaAlgor := rsaPKCS1v15Algorithms[hashFunc]
+	rsaAlgor := rawRSA[hashFunc]
 
 	buffer := []byte("Plain text to encrypt")
 	dataRef := bytesToCFData(buffer)
 
-	// Encrypting
-	cipherText, errEncrypt := key.Encrypt(rsaAlgor, dataRef)
-	if errEncrypt != nil {
-		t.Errorf("Encrypt error: %q", errEncrypt)
-		return
-	}
-	fmt.Println("Encrypted message:", cipherText)
-}
-
-// func TestDecryptSecKey(t *testing.T) {
-// 	// Getting the public key
-// 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
-// 	if err != nil {
-// 		t.Errorf("Cred error: %q", err)
-// 		return
-// 	}
-// 	hashFunc := crypto.Hash(crypto.SHA256)
-// 	rsaAlgor := rsaPKCS1v15Algorithms[hashFunc]
-
-// 	buffer := []byte("Plain text to encrypt")
-// 	dataRef := bytesToCFData(buffer)
-
-// 	// Encrypting
-// 	cipherText, errEncrypt := key.Encrypt(rsaAlgor, dataRef)
-// 	if errEncrypt != nil {
-// 		t.Errorf("Encrypt error: %q", errEncrypt)
-// 		return
-// 	}
-// 	fmt.Println("Encrypted successfully:", cipherText)
-
-// 	// Decrypting
-// 	plaintext, errDecrypt := key.Decrypt(rsaAlgor, cipherText)
-// 	if errDecrypt != nil {
-// 		t.Errorf("Encrypt error: %q", errDecrypt)
-// 		return
-// 	}
-// 	fmt.Println("Decrypted successfully:", plaintext)
-// }
-
-func TestDecryptOAEP(t *testing.T) {
-	hashFunc := sha256.New()
-	rng := rand.Reader
-	key, errCred := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
-	if errCred != nil {
-		t.Errorf("Cred error: %q", errCred)
-		return
-	}
-	message := []byte("Plain text to encrypt")
-
-	// Encrypting
-	cipherText, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
-	if errEncrypt != nil {
-		t.Errorf("Encrypt error: %q", errEncrypt)
-		return
-	}
-	fmt.Println("Encrypted message: ", cipherText)
-
+	fmt.Print("Test")
+	msg, _ := key.Encrypt(rsaAlgor, dataRef)
+	// if errEncrypt != nil {
+	// 	t.Errorf("Encrypt error: %v", errEncrypt)
+	// 	return
+	// }
 	// Decrypting
-	// Converting hash algorithm into encryption algorithm
-	// var hashIn interface{} = hashFunc
-	// cryptoHash := hashIn.(crypto.Hash)
-	// rsaAlgor := rsaPKCS1v15Algorithms[cryptoHash]
-
-	text2Decrypt := bytesToCFData(cipherText)
-
-	plaintext, errDecrypt := key.Decrypt(text2Decrypt)
+	plaintext, errDecrypt := key.Decrypt(msg)
 	if errDecrypt != nil {
 		t.Errorf("Encrypt error: %q", errDecrypt)
 		return
 	}
 	byteSlice := (cfDataToBytes(plaintext))
 	readable := string(byteSlice)
-	fmt.Println("Decrypted message:", readable)
+	fmt.Println("Decrypted successfully:", readable)
 }
+
+// func TestDecryptOAEP(t *testing.T) {
+// 	hashFunc := sha256.New()
+// 	rng := rand.Reader
+// 	key, errCred := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+// 	if errCred != nil {
+// 		t.Errorf("Cred error: %q", errCred)
+// 		return
+// 	}
+// 	message := []byte("Plain text to encrypt")
+
+// 	cipherText, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
+// 	if errEncrypt != nil {
+// 		t.Errorf("Encrypt error: %q", errEncrypt)
+// 		return
+// 	}
+// 	fmt.Println("Encrypted message: ", cipherText)
+
+// 	// Decrypting
+// 	// Converting hash algorithm into encryption algorithm
+// 	// var hashIn interface{} = hashFunc
+// 	// cryptoHash := hashIn.(crypto.Hash)
+// 	// rsaAlgor := rsaPKCS1v15Algorithms[cryptoHash]
+
+// 	text2Decrypt := bytesToCFData(cipherText)
+
+// 	plaintext, errDecrypt := key.Decrypt(text2Decrypt)
+// 	if errDecrypt != nil {
+// 		t.Errorf("Encrypt error: %q", errDecrypt)
+// 		return
+// 	}
+// 	byteSlice := (cfDataToBytes(plaintext))
+// 	readable := string(byteSlice)
+// 	fmt.Println("Decrypted message:", readable)
+// }

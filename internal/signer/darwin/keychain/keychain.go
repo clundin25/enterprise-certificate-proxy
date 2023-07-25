@@ -50,6 +50,9 @@ var (
 		crypto.SHA384: C.kSecKeyAlgorithmECDSASignatureDigestX962SHA384,
 		crypto.SHA512: C.kSecKeyAlgorithmECDSASignatureDigestX962SHA512,
 	}
+	rawRSA = map[crypto.Hash]C.CFStringRef{
+		crypto.SHA256: C.kSecKeyAlgorithmRSAEncryptionRaw,
+	}
 	rsaPKCS1v15Algorithms = map[crypto.Hash]C.CFStringRef{
 		crypto.SHA256: C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256,
 		crypto.SHA384: C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384,
@@ -89,6 +92,7 @@ func cfRelease(x unsafe.Pointer) {
 
 // cfError is an error type that owns a CFErrorRef, and obtains the error string
 // by using CFErrorCopyDescription.
+// TODO(angela): Write a method for this struct that lets us determine if the underlying CFErrorRef is actually an error or not.
 type cfError struct {
 	e C.CFErrorRef
 }
@@ -329,6 +333,32 @@ func Cred(issuerCN string) (*Key, error) {
 	return newKey(skr, certs, pubKey)
 }
 
+func (k *Key) PrintSupportedAlgorithms() {
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionRaw) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionRaw")
+	}
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionPKCS1) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionPKCS1")
+	}
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA1) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA1")
+	}
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA224) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA224")
+	}
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256")
+	}
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA384) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA384")
+	}
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA512) == 1 {
+		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA512")
+	} else {
+		fmt.Println("not supported")
+	}
+}
+
 // identityToX509 converts a single CFDictionary that contains the item ref and
 // attribute dictionary into an x509.Certificate.
 func identityToX509(ident C.SecIdentityRef) (*x509.Certificate, error) {
@@ -407,7 +437,7 @@ func identityToPublicSecKeyRef(ident C.SecIdentityRef) (C.SecKeyRef, error) {
 	}
 	defer C.CFRelease(C.CFTypeRef(certRef))
 
-    key = C.SecCertificateCopyKey(certRef)
+	key = C.SecCertificateCopyKey(certRef)
 
 	if key == 0 {
 		return 0, fmt.Errorf("Public key was NULL")
@@ -456,9 +486,16 @@ func (k *Key) Encrypt(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfDat
 	// perform the encryption using SecKeyCreateEncryptedData()
 
 	// Converting public key to type SecKeyRef
-	SecKeyRef := k.privateKeyRef
+	SecKeyRef := k.publicKeyRef
 	var encryptErr C.CFErrorRef
-	cipherText, err := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, &encryptErr)
+	cipherText := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, &encryptErr)
+	err = cfErrorFromRef(encryptErr)
+
+	// TODO(angela): Correctly check if there is an error here, then log the error.
+	// Eventually remove the log statement and let callers deal with the error.
+	if err != nil {
+		fmt.Println(err)
+	}
 	return cipherText, err
 }
 
@@ -469,6 +506,8 @@ return value: CFDataRef since the SecKeyCreateDecryptedData() function returns t
 */
 func (k *Key) Decrypt(ciphertext C.CFDataRef) (cfData C.CFDataRef, err error) {
 	priKey := k.privateKeyRef
-	plainText, err := C.SecKeyCreateDecryptedData(priKey, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256, ciphertext, nil) // temp hard-coded algorithm
+	hashFunc := crypto.Hash(crypto.SHA256)
+	rsaAlgor := rawRSA[hashFunc]
+	plainText, err := C.SecKeyCreateDecryptedData(priKey, rsaAlgor, ciphertext, nil) // temp hard-coded algorithm
 	return plainText, err
 }
