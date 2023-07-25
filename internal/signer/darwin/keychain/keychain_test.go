@@ -71,6 +71,25 @@ func TestEncryptRSA(t *testing.T) {
 	fmt.Println("Encrypted message: ", cipherText)
 }
 
+func BenchmarkEncryptRSA(b *testing.B) {
+	hashFunc := sha256.New()
+	rng := rand.Reader
+	key, errCred := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+	if errCred != nil {
+		b.Errorf("Cred error: %q", errCred)
+		return
+	}
+	message := []byte("Plain text to encrypt")
+
+    for i := 0; i < b.N; i++ {
+        _, errEncrypt := key.EncryptRSA(hashFunc, rng, message)
+        if errEncrypt != nil {
+            b.Errorf("Encrypt error: %q", errEncrypt)
+            return
+        }
+    }
+}
+
 func TestSecKeyEncrypt(t *testing.T) {
 	// Getting the public key
 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
