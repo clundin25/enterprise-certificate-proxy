@@ -88,64 +88,50 @@ func BenchmarkEncryptRSA(b *testing.B) {
 	}
 }
 
-// func BenchmarkEncryptSecKey(b *testing.B) {
-// 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
-// 	if err != nil {
-// 		b.Errorf("Cred error: %q", err)
-// 		return
-// 	}
-// 	//rsaAlgor := rsaOAEPAlgorithms[crypto.SHA256]
-// 	buffer := []byte("Plain text to encrypt")
-// 	dataRef := bytesToCFData(buffer)
-
-//		for i := 0; i < b.N; i++ {
-//			key.Encrypt(dataRef)
-//		}
-//	}
+func BenchmarkEncryptSecKey(b *testing.B) {
+	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+	if err != nil {
+		b.Errorf("Cred error: %q", err)
+		return
+	}
+	plainText := []byte("Plain text to encrypt")
+	for i := 0; i < b.N; i++ {
+		key.Encrypt(plainText)
+	}
+}
 func TestEncryptSecKey(t *testing.T) {
 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
 	if err != nil {
 		t.Errorf("Cred error: %q", err)
 		return
 	}
-	key.PrintSupportedAlgorithms()
-	plaintext := []byte("Plain text to encrypt")
-	msg, _ := key.Encrypt(plaintext)
+	plainText := []byte("Plain text to encrypt")
+	cipherText, _ := key.Encrypt(plainText)
 	// if errEncrypt != nil {
 	// 	t.Errorf("Encrypt error: %v", errEncrypt)
 	// 	return
 	// }
 	//byteSlice := cfDataToBytes(msg)
-	fmt.Printf("Encrypted %+v\n", msg)
+	fmt.Printf("Encrypted %+v\n", cipherText)
 }
 
-// func TestDecryptSecKey(t *testing.T) {
-// 	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
-// 	if err != nil {
-// 		t.Errorf("Cred error: %q", err)
-// 		return
-// 	}
-// 	//rsaAlgor := rawRSA[crypto.SHA256]
-
-// 	buffer := []byte("Plain text to encrypt")
-// 	dataRef := bytesToCFData(buffer)
-
-// 	fmt.Print("Test")
-// 	msg, _ := key.Encrypt(dataRef)
-// 	// if errEncrypt != nil {
-// 	// 	t.Errorf("Encrypt error: %v", errEncrypt)
-// 	// 	return
-// 	// }
-// 	// Decrypting
-// 	plaintext, errDecrypt := key.Decrypt(msg)
-// 	if errDecrypt != nil {
-// 		t.Errorf("Encrypt error: %q", errDecrypt)
-// 		return
-// 	}
-// 	byteSlice := (cfDataToBytes(plaintext))
-// 	readable := string(byteSlice)
-// 	fmt.Println("Decrypted successfully:", readable)
-// }
+func TestDecryptSecKey(t *testing.T) {
+	key, err := Cred("enterprise_v1_corp_client-signer-0-2018-07-03T10:55:10-07:00 K:1, 2:BXmhnePmGN4:0:18")
+	if err != nil {
+		t.Errorf("Cred error: %q", err)
+		return
+	}
+	byteSlice := []byte("Plain text to encrypt")
+	cipherText, _ := key.Encrypt(byteSlice)
+	fmt.Printf("Encrypted %+v\n", cipherText)
+	plainText, _ := key.Decrypt(cipherText)
+	// if errDecrypt != nil {
+	// 	t.Errorf("Encrypt error: %q", errDecrypt)
+	// 	return
+	// }
+	plainString := string(plainText)
+	fmt.Printf("Decrypted %+v\n", plainString)
+}
 
 // func TestDecryptRSA(t *testing.T) {
 // 	hashFunc := sha256.New()

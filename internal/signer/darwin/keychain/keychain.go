@@ -71,6 +71,10 @@ var (
 )
 
 func (k *Key) getAlgorithm() (C.SecKeyAlgorithm, error) {
+	if k.hashFunc == 0 {
+		k.hashFunc = crypto.SHA256
+		return k.getAlgorithm()
+	}
 	var algorithms map[crypto.Hash]C.CFStringRef
 	switch pub := k.Public().(type) {
 	case *rsa.PublicKey:
@@ -488,18 +492,15 @@ func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]b
 }
 
 func (k *Key) Encrypt(plaintext []byte) ([]byte, error) {
-	// peform a length test using SecKeyGetBlockSize
+	// todo: peform a length test using SecKeyGetBlockSize
 	pubKey := k.publicKeyRef
-	// algorithm, errAlgor := k.getAlgorithm()
-	// if errAlgor != nil {
-	// 	fmt.Printf("Algorithm mapping error: %+v\n", errAlgor)
-	// }  LEFT OFF HERE: ALGORITHM MAPPING HAS SOME PROBLEM
-	algorithm := rsaOAEPAlgorithms[crypto.SHA256]
+	algorithm, errAlgor := k.getAlgorithm()
+	if errAlgor != nil {
+		fmt.Printf("Algorithm mapping error: %+v\n", errAlgor)
+	}
 	msg := bytesToCFData(plaintext)
 	var encryptErr C.CFErrorRef
-	fmt.Println("algorithm: ", algorithm)
-	cipherText := C.SecKeyCreateEncryptedData(pubKey, algorithm, msg, &encryptErr)
-	cipherByte := cfDataToBytes(cipherText)
+	cipherText := cfDataToBytes(C.SecKeyCreateEncryptedData(pubKey, algorithm, msg, &encryptErr))
 	err := cfErrorFromRef(encryptErr)
 
 	// TODO(angela): Correctly check if there is an error here, then log the error.
@@ -507,12 +508,18 @@ func (k *Key) Encrypt(plaintext []byte) ([]byte, error) {
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }
-	return cipherByte, err
+	return cipherText, err
 }
 
-func (k *Key) Decrypt(ciphertext C.CFDataRef) (cfData C.CFDataRef, err error) {
+func (k *Key) Decrypt(ciphertext []byte) ([]byte, error) {
 	priKey := k.privateKeyRef
-	rsaAlgor := rawRSA[crypto.SHA256]
-	plainText, err := C.SecKeyCreateDecryptedData(priKey, rsaAlgor, ciphertext, nil) // temp hard-coded algorithm
+	algorithm, errAlgor := k.getAlgorithm()
+	if errAlgor != nil {
+		fmt.Printf("Algorithm mapping error: %+v\n", errAlgor)
+	}
+	msg := bytesToCFData(ciphertext)
+	var encryptErr C.CFErrorRef
+	plainText := cfDataToBytes(C.SecKeyCreateDecryptedData(priKey, algorithm, msg, &encryptErr)) // temp hard-coded algorithm
+	err := cfErrorFromRef(encryptErr)
 	return plainText, err
 }
