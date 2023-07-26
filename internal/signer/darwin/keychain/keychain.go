@@ -65,8 +65,28 @@ var (
 	}
 	rsaOAEPAlgorithms = map[crypto.Hash]C.CFStringRef{
 		crypto.SHA256: C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256,
+		crypto.SHA384: C.kSecKeyAlgorithmRSAEncryptionOAEPSHA384,
+		crypto.SHA512: C.kSecKeyAlgorithmRSAEncryptionOAEPSHA512,
 	}
 )
+
+func (k *Key) getAlgorithm() (C.SecKeyAlgorithm, error) {
+	var algorithms map[crypto.Hash]C.CFStringRef
+	switch pub := k.Public().(type) {
+	case *rsa.PublicKey:
+		if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSASignatureDigestPSSSHA256) == 1 {
+			algorithms = rsaPSSAlgorithms
+		} else if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256) == 1 {
+			algorithms = rsaOAEPAlgorithms
+		} else if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256) == 1 {
+			algorithms = rsaPKCS1v15Algorithms
+		}
+	default:
+		return 0, fmt.Errorf("unsupported algorithm %T", pub)
+	}
+	algor := algorithms[k.hashFunc]
+	return algor, nil
+}
 
 // cfStringToString returns a Go string given a CFString.
 func cfStringToString(cfStr C.CFStringRef) string {
@@ -150,6 +170,7 @@ type Key struct {
 	certs         []*x509.Certificate
 	once          sync.Once
 	publicKeyRef  C.SecKeyRef
+	hashFunc      crypto.Hash
 }
 
 // newKey makes a new Key wrapper around the key reference,
@@ -160,6 +181,7 @@ func newKey(privateKeyRef C.SecKeyRef, certs []*x509.Certificate, publicKeyRef C
 		privateKeyRef: privateKeyRef,
 		certs:         certs,
 		publicKeyRef:  publicKeyRef,
+		//hashFunc:      hashFunc,
 	}
 
 	// This struct now owns the key reference. Retain now and release on
@@ -337,14 +359,11 @@ func (k *Key) PrintSupportedAlgorithms() {
 	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionRaw) == 1 {
 		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionRaw")
 	}
-	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionPKCS1) == 1 {
-		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionPKCS1")
+	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256) == 1 {
+		fmt.Println("C.C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256")
 	}
 	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA1) == 1 {
 		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA1")
-	}
-	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA224) == 1 {
-		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA224")
 	}
 	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256) == 1 {
 		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256")
@@ -354,8 +373,6 @@ func (k *Key) PrintSupportedAlgorithms() {
 	}
 	if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA512) == 1 {
 		fmt.Println("C.kSecKeyAlgorithmRSAEncryptionOAEPSHA512")
-	} else {
-		fmt.Println("not supported")
 	}
 }
 
@@ -463,10 +480,6 @@ func certIn(xc *x509.Certificate, xcs []*x509.Certificate) bool {
 	return false
 }
 
-/*
-Encrypt() function works to asymmetrically encrypt using a given public key
-This version of Encrypt() will use the Go Crypto API encrypt function instead of SecKey
-*/
 func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]byte, error) {
 	pub := k.Public()
 	var publicKey interface{} = pub
@@ -474,40 +487,32 @@ func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]b
 	return rsa.EncryptOAEP(hashInput, random, rsaPubKey, msg, nil)
 }
 
-/*
-Encrypt() function works to asymmetrically encrypt using a given public key
-parameters: desired algorithm to use, data to encryt
-return value: CFDataRef since the SecKeyCreateEncryptedData() function returns that value, error
-*/
-func (k *Key) EncryptSecKey(algorithm C.SecKeyAlgorithm, plaintext C.CFDataRef) (cfData C.CFDataRef, err error) {
-	// choose the algorithm that suits the key's capabilities (?) certRefToX509()?
-	// should also test if the algorithm works using kSecKeyOperationTypeEncrypt & SecKeyIsAlgorithmSupported() or certRefToX509()
+func (k *Key) Encrypt(plaintext []byte) ([]byte, error) {
 	// peform a length test using SecKeyGetBlockSize
-	// perform the encryption using SecKeyCreateEncryptedData()
-
-	// Converting public key to type SecKeyRef
-	SecKeyRef := k.publicKeyRef
+	pubKey := k.publicKeyRef
+	// algorithm, errAlgor := k.getAlgorithm()
+	// if errAlgor != nil {
+	// 	fmt.Printf("Algorithm mapping error: %+v\n", errAlgor)
+	// }  LEFT OFF HERE: ALGORITHM MAPPING HAS SOME PROBLEM
+	algorithm := rsaOAEPAlgorithms[crypto.SHA256]
+	msg := bytesToCFData(plaintext)
 	var encryptErr C.CFErrorRef
-	cipherText := C.SecKeyCreateEncryptedData(SecKeyRef, algorithm, plaintext, &encryptErr)
-	err = cfErrorFromRef(encryptErr)
+	fmt.Println("algorithm: ", algorithm)
+	cipherText := C.SecKeyCreateEncryptedData(pubKey, algorithm, msg, &encryptErr)
+	cipherByte := cfDataToBytes(cipherText)
+	err := cfErrorFromRef(encryptErr)
 
 	// TODO(angela): Correctly check if there is an error here, then log the error.
 	// Eventually remove the log statement and let callers deal with the error.
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }
-	return cipherText, err
+	return cipherByte, err
 }
 
-/*
-Decrypt() function works to decrypt using a given private key
-parameters: desired algorithm to use, data to decrypt
-return value: CFDataRef since the SecKeyCreateDecryptedData() function returns that value, error
-*/
 func (k *Key) Decrypt(ciphertext C.CFDataRef) (cfData C.CFDataRef, err error) {
 	priKey := k.privateKeyRef
-	hashFunc := crypto.Hash(crypto.SHA256)
-	rsaAlgor := rawRSA[hashFunc]
+	rsaAlgor := rawRSA[crypto.SHA256]
 	plainText, err := C.SecKeyCreateDecryptedData(priKey, rsaAlgor, ciphertext, nil) // temp hard-coded algorithm
 	return plainText, err
 }
