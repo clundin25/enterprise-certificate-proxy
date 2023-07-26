@@ -70,10 +70,19 @@ var (
 	}
 )
 
-func (k *Key) getAlgorithm() (C.SecKeyAlgorithm, error) {
+/*
+questions:
+- is this switch statement a good choice?
+  - I ordered the algorithms based on how secure it is
+  - how should I choose whether it should be sha256, 384, or 512
+
+- did I create the hashFunc field correctly? (line 182)
+- what should I initialize k.hashFunc to be? (right now it is sha256)
+*/
+func (k *Key) getEncryptAlgorithm() (C.SecKeyAlgorithm, error) {
 	if k.hashFunc == 0 {
 		k.hashFunc = crypto.SHA256
-		return k.getAlgorithm()
+		return k.getEncryptAlgorithm()
 	}
 	var algorithms map[crypto.Hash]C.CFStringRef
 	switch pub := k.Public().(type) {
@@ -83,6 +92,23 @@ func (k *Key) getAlgorithm() (C.SecKeyAlgorithm, error) {
 		} else if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256) == 1 {
 			algorithms = rsaOAEPAlgorithms
 		} else if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeEncrypt, C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256) == 1 {
+			algorithms = rsaPKCS1v15Algorithms
+		}
+	default:
+		return 0, fmt.Errorf("unsupported algorithm %T", pub)
+	}
+	algor := algorithms[k.hashFunc]
+	return algor, nil
+}
+func (k *Key) getDecryptAlgorithm() (C.SecKeyAlgorithm, error) {
+	var algorithms map[crypto.Hash]C.CFStringRef
+	switch pub := k.Public().(type) {
+	case *rsa.PublicKey:
+		if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeDecrypt, C.kSecKeyAlgorithmRSASignatureDigestPSSSHA256) == 1 {
+			algorithms = rsaPSSAlgorithms
+		} else if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeDecrypt, C.kSecKeyAlgorithmRSAEncryptionOAEPSHA256) == 1 {
+			algorithms = rsaOAEPAlgorithms
+		} else if C.SecKeyIsAlgorithmSupported(k.publicKeyRef, C.kSecKeyOperationTypeDecrypt, C.kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256) == 1 {
 			algorithms = rsaPKCS1v15Algorithms
 		}
 	default:
@@ -492,34 +518,34 @@ func (k *Key) EncryptRSA(hashInput hash.Hash, random io.Reader, msg []byte) ([]b
 }
 
 func (k *Key) Encrypt(plaintext []byte) ([]byte, error) {
-	// todo: peform a length test using SecKeyGetBlockSize
 	pubKey := k.publicKeyRef
-	algorithm, errAlgor := k.getAlgorithm()
+	keySize := C.SecKeyGetBlockSize(pubKey)
+	if uint64(len(plaintext)) >= uint64(keySize-130) {
+		return nil, fmt.Errorf("plaintext is too long")
+	}
+	algorithm, errAlgor := k.getEncryptAlgorithm()
 	if errAlgor != nil {
 		fmt.Printf("Algorithm mapping error: %+v\n", errAlgor)
 	}
 	msg := bytesToCFData(plaintext)
-	var encryptErr C.CFErrorRef
-	cipherText := cfDataToBytes(C.SecKeyCreateEncryptedData(pubKey, algorithm, msg, &encryptErr))
-	err := cfErrorFromRef(encryptErr)
-
+	var cfErr C.CFErrorRef
+	cipherText := cfDataToBytes(C.SecKeyCreateEncryptedData(pubKey, algorithm, msg, &cfErr))
 	// TODO(angela): Correctly check if there is an error here, then log the error.
 	// Eventually remove the log statement and let callers deal with the error.
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	return cipherText, err
+	return cipherText, cfErrorFromRef(cfErr)
 }
 
 func (k *Key) Decrypt(ciphertext []byte) ([]byte, error) {
 	priKey := k.privateKeyRef
-	algorithm, errAlgor := k.getAlgorithm()
+	algorithm, errAlgor := k.getDecryptAlgorithm()
 	if errAlgor != nil {
 		fmt.Printf("Algorithm mapping error: %+v\n", errAlgor)
 	}
 	msg := bytesToCFData(ciphertext)
-	var encryptErr C.CFErrorRef
-	plainText := cfDataToBytes(C.SecKeyCreateDecryptedData(priKey, algorithm, msg, &encryptErr)) // temp hard-coded algorithm
-	err := cfErrorFromRef(encryptErr)
-	return plainText, err
+	var cfErr C.CFErrorRef
+	plainText := cfDataToBytes(C.SecKeyCreateDecryptedData(priKey, algorithm, msg, &cfErr))
+	if cfErr != 0 {
+		return nil, cfErrorFromRef(cfErr)
+	}
+	return plainText, nil
 }
