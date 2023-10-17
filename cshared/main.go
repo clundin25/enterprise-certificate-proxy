@@ -106,13 +106,10 @@ func SignForPython(configFilePath *C.char, digest *byte, digestLen int, sigHolde
 			log.Printf("Failed to clean up key. %v", err)
 		}
 	}()
-	var isRsa bool
 	switch key.Public().(type) {
 	case *ecdsa.PublicKey:
-		isRsa = false
 		log.Print("the key is ecdsa key")
 	case *rsa.PublicKey:
-		isRsa = true
 		log.Print("the key is rsa key")
 	default:
 		log.Printf("unsupported key type")
@@ -123,17 +120,7 @@ func SignForPython(configFilePath *C.char, digest *byte, digestLen int, sigHolde
 	digestSlice := unsafe.Slice(digest, digestLen)
 	var signature []byte
 	var signErr error
-	if isRsa {
-		// For RSA key, we need to create the padding and flags for RSASSA-SHA256
-		opts := rsa.PSSOptions{
-			SaltLength: digestLen,
-			Hash:       crypto.SHA256,
-		}
-
-		signature, signErr = key.Sign(nil, digestSlice, &opts)
-	} else {
-		signature, signErr = key.Sign(nil, digestSlice, crypto.SHA256)
-	}
+	signature, signErr = key.Sign(nil, digestSlice, crypto.SHA256)
 	if signErr != nil {
 		log.Printf("failed to sign hash: %v", signErr)
 		return 0
