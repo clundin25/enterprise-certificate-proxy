@@ -18,7 +18,7 @@ rm -rf ./build/bin/linux_amd64
 mkdir -p ./build/bin/linux_amd64
 
 # Build the signer library
-go build -buildmode=c-shared -o build/bin/linux_amd64/libecp.so cshared/main.go
+go build -buildmode=c-shared -ldflags '-extldflags -Wl,-soname,libecp.so' -o build/bin/linux_amd64/libecp.so cshared/main.go
 rm build/bin/linux_amd64/libecp.h
 
 # Build the signer binary
